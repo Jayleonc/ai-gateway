@@ -12,6 +12,13 @@ type StreamReader interface {
 }
 
 // Runtime 管理 streaming 请求的生命周期
+// 真正的“权力中心”，但权力被严格限制
+// Runtime 是唯一一个：
+// - 知道整个生命周期
+// - 能决定什么时候 stop
+// - 能保证 OnEnd 一定被调用
+// - 它做的一切，都是过程管理，不是业务判断。
+// 它不关心 quota 是怎么算的，也不关心 token 是怎么估的。
 type Runtime struct {
 	ctx       *StreamingContext
 	observers *ObserverGroup
@@ -33,10 +40,10 @@ func (r *Runtime) Run(reader StreamReader) error {
 	// 读取第一个 chunk
 	firstDelta, err := reader.Next()
 	if err != nil {
-		r.ctx.MarkEnd(EndReasonError, err)
-		if r.observers != nil {
-			_ = r.observers.OnEnd(r.ctx)
+		if r.ctx.EndReason == "" {
+			r.ctx.SetEndReason(EndReasonInternalError, err)
 		}
+		r.endOnce()
 		return err
 	}
 
@@ -47,20 +54,29 @@ func (r *Runtime) Run(reader StreamReader) error {
 	// 调用 OnFirstChunk
 	if r.observers != nil {
 		if err := r.observers.OnFirstChunk(r.ctx); err != nil {
-			r.ctx.MarkEnd(EndReasonError, err)
-			_ = r.observers.OnEnd(r.ctx)
+			if r.ctx.EndReason == "" {
+				r.ctx.SetEndReason(EndReasonInternalError, err)
+			}
+			r.endOnce()
 			return err
 		}
 	}
 
 	// 处理首个 chunk（和后续 chunk 一样）
 	stop, err := r.handleChunk(firstDelta)
-	if stop || err != nil {
-		r.ctx.MarkEnd(EndReasonError, err)
-		if r.observers != nil {
-			_ = r.observers.OnEnd(r.ctx)
+	if err != nil {
+		if r.ctx.EndReason == "" {
+			r.ctx.SetEndReason(EndReasonInternalError, err)
 		}
+		r.endOnce()
 		return err
+	}
+	if stop {
+		if r.ctx.EndReason == "" {
+			r.ctx.SetEndReason(EndReasonStop, nil)
+		}
+		r.endOnce()
+		return nil
 	}
 
 	// 读取后续 chunk
@@ -73,25 +89,43 @@ func (r *Runtime) Run(reader StreamReader) error {
 
 		r.ctx.IncrementChunkCount()
 		stop, err := r.handleChunk(delta)
-		if stop || err != nil {
-			r.ctx.MarkEnd(EndReasonError, err)
-			if r.observers != nil {
-				_ = r.observers.OnEnd(r.ctx)
+		if err != nil {
+			if r.ctx.EndReason == "" {
+				r.ctx.SetEndReason(EndReasonInternalError, err)
 			}
+			r.endOnce()
 			return err
+		}
+		if stop {
+			if r.ctx.EndReason == "" {
+				r.ctx.SetEndReason(EndReasonStop, nil)
+			}
+			r.endOnce()
+			return nil
 		}
 	}
 
 	// 正常结束
-	r.ctx.MarkEnd(EndReasonStop, nil)
+	if r.ctx.EndReason == "" {
+		r.ctx.SetEndReason(EndReasonStop, nil)
+	}
+	r.endOnce()
+
+	return nil
+}
+
+func (r *Runtime) endOnce() {
+	if r.ctx != nil && r.ctx.Ended {
+		return
+	}
+	if r.ctx != nil {
+		r.ctx.MarkEnd()
+	}
 	if r.observers != nil {
 		if err := r.observers.OnEnd(r.ctx); err != nil {
 			log.Printf("[Runtime] OnEnd error: %v", err)
-			return err
 		}
 	}
-
-	return nil
 }
 
 // handleChunk 处理单个 chunk
@@ -101,12 +135,6 @@ func (r *Runtime) handleChunk(delta *Delta) (stop bool, err error) {
 	}
 
 	stop, err = r.observers.OnChunk(r.ctx, delta)
-	if stop {
-		// 观察者要求中断
-		if r.ctx.EndReason == "" {
-			r.ctx.MarkEnd(EndReasonStop, nil)
-		}
-	}
 	return stop, err
 }
 

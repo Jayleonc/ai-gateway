@@ -195,7 +195,7 @@ func (h *ChatHandler) handleStreamingChat(c *gin.Context, reqCtx *identity.Reque
 	if err := rt.Run(reader); err != nil {
 		// 如果是配额超限，返回 429
 		if sctx.EndReason == streaming.EndReasonQuotaExceeded {
-			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("quota_exceeded", "quota exceeded during streaming", coreerrors.OpenAIErrorTypeRateLimit, http.StatusTooManyRequests))
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus(policy.ErrQuotaExceeded, "quota exceeded during streaming", coreerrors.OpenAIErrorTypeRateLimit, http.StatusTooManyRequests))
 			return
 		}
 		WriteOpenAIError(c, err)

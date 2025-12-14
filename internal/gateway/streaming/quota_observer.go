@@ -39,7 +39,7 @@ func (qo *QuotaObserver) OnChunk(ctx *StreamingContext, delta *Delta) (stop bool
 	// 尝试消耗配额
 	if !qo.quotaStore.TryConsume(ctx.APIKeyID, estimatedTokens) {
 		// 配额耗尽，标记应该中断
-		ctx.MarkEnd(EndReasonQuotaExceeded, nil)
+		ctx.SetEndReason(EndReasonQuotaExceeded, nil)
 		return true, nil
 	}
 

@@ -1,6 +1,7 @@
 package streaming
 
 // StreamObserver 定义 streaming 生命周期的观察者接口
+// Observer 永远只能“回应事实”，不能“制造事实”
 type StreamObserver interface {
 	// OnFirstChunk 在首个 chunk 成功写出并 flush 后调用
 	OnFirstChunk(ctx *StreamingContext) error

@@ -1,7 +1,7 @@
 package streaming
 
 import (
-	"fmt"
+	"io"
 	"time"
 )
 
@@ -25,7 +25,7 @@ func NewStubStreamReader(chunks []*Delta, delay time.Duration) *StubStreamReader
 // Next 返回下一个 chunk，或 io.EOF 表示流结束
 func (sr *StubStreamReader) Next() (*Delta, error) {
 	if sr.index >= len(sr.chunks) {
-		return nil, fmt.Errorf("EOF")
+		return nil, io.EOF
 	}
 
 	if sr.delay > 0 {

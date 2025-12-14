@@ -19,9 +19,12 @@ const (
 	EndReasonQuotaExceeded    EndReason = "quota_exceeded"
 	EndReasonError            EndReason = "error"
 	EndReasonClientDisconnect EndReason = "client_disconnect"
+	EndReasonInternalError    EndReason = "internal_error"
 )
 
 // StreamingContext 表示一次 streaming 请求的生命周期状态
+// Context 只做事实容器，决策交给订阅者。
+// 这意味着 StreamingContext 本身不决定"要不要停止"、"配额够不够"，它只记录发生了什么。
 type StreamingContext struct {
 	// 身份信息
 	RequestID string
@@ -33,6 +36,8 @@ type StreamingContext struct {
 	StartAt      time.Time
 	FirstChunkAt *time.Time
 	EndAt        *time.Time
+
+	Ended bool // 是否结束，保证 OnEnd 的“只执行一次”和“不被重复解释”。
 
 	// 计量
 	ChunkCount      int
@@ -57,13 +62,26 @@ func (sc *StreamingContext) MarkFirstChunk() {
 }
 
 // MarkEnd 标记流结束
-func (sc *StreamingContext) MarkEnd(reason EndReason, err error) {
+func (sc *StreamingContext) MarkEnd() {
 	if sc.EndAt == nil {
 		now := time.Now()
 		sc.EndAt = &now
 	}
-	sc.EndReason = reason
-	sc.Err = err
+	sc.Ended = true
+}
+
+// SetEndReason 设置结束原因
+func (sc *StreamingContext) SetEndReason(reason EndReason, err error) {
+	// 防止结束后被写
+	if sc.Ended {
+		return
+	}
+	if sc.EndReason == "" {
+		sc.EndReason = reason
+	}
+	if sc.Err == nil && err != nil {
+		sc.Err = err
+	}
 }
 
 // AddConfirmedTokens 累加已确认 token

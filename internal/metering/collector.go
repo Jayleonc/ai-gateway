@@ -12,6 +12,10 @@ type UsageRecord struct {
 	CompletedAt time.Time
 	Duration    time.Duration
 
+	StartAt      time.Time
+	FirstChunkAt *time.Time
+	EndAt        *time.Time
+
 	// 归属信息
 	APIKeyID   string
 	ProjectID  string
@@ -29,11 +33,16 @@ type UsageRecord struct {
 	CompletionTokens int
 	TotalTokens      int
 
+	ConfirmedTokens int64
+	ChunkCount      int
+
 	// 成本
 	Cost *Cost
 
 	// 状态
 	Success   bool
+	Status    string
+	EndReason string
 	ErrorCode string
 	ErrorMsg  string
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	coreerrors "github.com/Jayleonc/ai-gateway/internal/core/errors"
 	"github.com/Jayleonc/ai-gateway/internal/identity"
 	"github.com/Jayleonc/ai-gateway/internal/policy"
 	"github.com/Jayleonc/ai-gateway/internal/provider"
@@ -33,12 +34,7 @@ func (h *CompletionsHandler) Handle(c *gin.Context) {
 	// 1. 解析请求
 	var req openai.CompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: "invalid request body",
-				Type:    "invalid_request_error",
-			},
-		})
+		WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("invalid_request", "invalid request body", "invalid_request_error", http.StatusBadRequest))
 		return
 	}
 
@@ -46,12 +42,7 @@ func (h *CompletionsHandler) Handle(c *gin.Context) {
 	apiKey := extractAPIKey(c)
 	reqCtx, err := h.authenticator.Authenticate(c.Request.Context(), apiKey)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: "invalid api key",
-				Type:    "authentication_error",
-			},
-		})
+		WriteOpenAIError(c, err)
 		return
 	}
 
@@ -60,33 +51,25 @@ func (h *CompletionsHandler) Handle(c *gin.Context) {
 		Model: req.Model,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: "policy evaluation failed",
-				Type:    "server_error",
-			},
-		})
+		WriteOpenAIError(c, err)
 		return
 	}
 	if !decision.Allowed {
-		c.JSON(http.StatusTooManyRequests, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: decision.DenyReason,
-				Type:    "rate_limit_error",
-			},
-		})
+		switch decision.DenyCode {
+		case "quota_exceeded":
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("quota_exceeded", decision.DenyReason, "rate_limit_error", http.StatusTooManyRequests))
+		case "rate_limited":
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("rate_limited", decision.DenyReason, "rate_limit_error", http.StatusTooManyRequests))
+		default:
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("rate_limited", decision.DenyReason, "rate_limit_error", http.StatusTooManyRequests))
+		}
 		return
 	}
 
 	// 4. 获取 Provider
 	p, ok := h.providerRegistry.Get(decision.TargetProvider)
 	if !ok {
-		c.JSON(http.StatusBadGateway, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: "provider not available",
-				Type:    "server_error",
-			},
-		})
+		WriteOpenAIError(c, coreerrors.ErrProviderNotFound)
 		return
 	}
 
@@ -104,12 +87,7 @@ func (h *CompletionsHandler) Handle(c *gin.Context) {
 
 	resp, err := p.Complete(c.Request.Context(), providerReq)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: "provider error",
-				Type:    "server_error",
-			},
-		})
+		WriteOpenAIError(c, err)
 		return
 	}
 

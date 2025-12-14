@@ -1,6 +1,9 @@
 package errors
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+)
 
 // 标准错误定义
 var (
@@ -20,22 +23,91 @@ var (
 	ErrProviderNotFound = errors.New("provider not found")
 )
 
-// APIError 统一 API 错误结构
-type APIError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Type    string `json:"type"`
+type APIError interface {
+	error
+	Code() string    // 内部错误码
+	Message() string // 人类可读信息
+	Type() string    // openai error type
+	HTTPStatus() int // 推荐 HTTP 状态码
 }
 
-func (e *APIError) Error() string {
-	return e.Message
+// apiError 统一 API 错误结构
+type apiError struct {
+	code    string
+	message string
+	errType string
+	status  int
+}
+
+func (e *apiError) Error() string {
+	return e.message
+}
+
+func (e *apiError) Code() string {
+	return e.code
+}
+
+func (e *apiError) Message() string {
+	return e.message
+}
+
+func (e *apiError) Type() string {
+	return e.errType
+}
+
+func (e *apiError) HTTPStatus() int {
+	if e.status != 0 {
+		return e.status
+	}
+	return http.StatusInternalServerError
 }
 
 // NewAPIError 创建 API 错误
-func NewAPIError(code, message, errType string) *APIError {
-	return &APIError{
-		Code:    code,
-		Message: message,
-		Type:    errType,
+func NewAPIError(code, message, errType string) APIError {
+	return &apiError{
+		code:    code,
+		message: message,
+		errType: errType,
+		status:  http.StatusInternalServerError,
+	}
+}
+
+func NewAPIErrorWithStatus(code, message, errType string, status int) APIError {
+	return &apiError{
+		code:    code,
+		message: message,
+		errType: errType,
+		status:  status,
+	}
+}
+
+func AsAPIError(err error) APIError {
+	if err == nil {
+		return nil
+	}
+	var apiErr APIError
+	if errors.As(err, &apiErr) {
+		return apiErr
+	}
+
+	switch {
+	case errors.Is(err, ErrInvalidAPIKey):
+		return NewAPIErrorWithStatus("invalid_api_key", "invalid api key", "authentication_error", http.StatusUnauthorized)
+	case errors.Is(err, ErrAPIKeyExpired):
+		return NewAPIErrorWithStatus("api_key_expired", "api key expired", "authentication_error", http.StatusUnauthorized)
+	case errors.Is(err, ErrAPIKeyDisabled):
+		return NewAPIErrorWithStatus("api_key_disabled", "api key disabled", "authentication_error", http.StatusUnauthorized)
+	case errors.Is(err, ErrQuotaExceeded):
+		return NewAPIErrorWithStatus("quota_exceeded", "quota exceeded", "rate_limit_error", http.StatusTooManyRequests)
+	case errors.Is(err, ErrRateLimited):
+		return NewAPIErrorWithStatus("rate_limited", "rate limited", "rate_limit_error", http.StatusTooManyRequests)
+	case errors.Is(err, ErrProviderError):
+		return NewAPIErrorWithStatus("provider_error", "provider error", "server_error", http.StatusBadGateway)
+	case errors.Is(err, ErrProviderNotFound):
+		return NewAPIErrorWithStatus("provider_error", "provider error", "server_error", http.StatusBadGateway)
+	case errors.Is(err, ErrBadRequest):
+		return NewAPIErrorWithStatus("invalid_request", "bad request", "invalid_request_error", http.StatusBadRequest)
+	default:
+		return NewAPIErrorWithStatus("internal_error", "internal server error", "server_error", http.StatusInternalServerError)
 	}
 }

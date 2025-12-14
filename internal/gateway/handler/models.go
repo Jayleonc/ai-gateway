@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	coreerrors "github.com/Jayleonc/ai-gateway/internal/core/errors"
 	"github.com/Jayleonc/ai-gateway/internal/provider"
 	"github.com/Jayleonc/ai-gateway/pkg/openai"
 )
@@ -50,12 +51,7 @@ func (h *ModelsHandler) Get(c *gin.Context) {
 
 	p, ok := h.providerRegistry.GetByModel(modelID)
 	if !ok {
-		c.JSON(http.StatusNotFound, openai.ErrorResponse{
-			Error: &openai.ErrorDetail{
-				Message: "model not found",
-				Type:    "invalid_request_error",
-			},
-		})
+		WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("invalid_request", "model not found", "invalid_request_error", http.StatusNotFound))
 		return
 	}
 

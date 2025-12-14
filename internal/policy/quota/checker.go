@@ -3,6 +3,7 @@ package quota
 import (
 	"context"
 
+	coreerrors "github.com/Jayleonc/ai-gateway/internal/core/errors"
 	"github.com/Jayleonc/ai-gateway/internal/identity"
 )
 
@@ -12,15 +13,36 @@ type Checker interface {
 }
 
 // checker 配额检查器实现
-type checker struct{}
+type checker struct {
+	quotaStore QuotaStore
+}
 
 // NewChecker 创建配额检查器
-func NewChecker() Checker {
-	return &checker{}
+func NewChecker(quotaStore QuotaStore) Checker {
+	return &checker{
+		quotaStore: quotaStore,
+	}
 }
 
 // Check 检查配额
 func (c *checker) Check(ctx context.Context, reqCtx *identity.RequestContext, estimatedTokens int) error {
-	// TODO: implement quota checking
+	_ = ctx
+	if c == nil || c.quotaStore == nil || reqCtx == nil {
+		return nil
+	}
+
+	key := reqCtx.APIKeyID
+	if key == "" {
+		return nil
+	}
+
+	tokens := int64(estimatedTokens)
+	if tokens <= 0 {
+		tokens = 1
+	}
+
+	if !c.quotaStore.TryConsume(key, tokens) {
+		return coreerrors.ErrQuotaExceeded
+	}
 	return nil
 }

@@ -34,7 +34,7 @@ func NewEngine(qc quota.Checker, rl ratelimit.Limiter, r routing.Router) Engine 
 func (e *engine) Evaluate(ctx context.Context, reqCtx *identity.RequestContext, req *EvaluateRequest) (*Decision, error) {
 	// 1. 配额检查
 	if err := e.quotaChecker.Check(ctx, reqCtx, req.EstimatedTokens); err != nil {
-		return NewDenyDecision("quota_exceeded", err.Error()), nil
+		return NewDenyDecision(DenyCodeQuotaExceeded, err.Error()), nil
 	}
 
 	// 2. 限流判断
@@ -43,7 +43,7 @@ func (e *engine) Evaluate(ctx context.Context, reqCtx *identity.RequestContext, 
 		return nil, err
 	}
 	if !allowed {
-		return NewDenyDecision("rate_limited", "rate limit exceeded"), nil
+		return NewDenyDecision(DenyCodeRateLimited, "rate limit exceeded"), nil
 	}
 
 	// 3. 路由决策

@@ -30,7 +30,9 @@ func main() {
 	authenticator := identity.NewAuthenticator(apiKeyRepo)
 
 	// 2. Policy 模块
-	quotaChecker := quota.NewChecker()
+	quotaStore := quota.NewInMemoryStore()
+	quotaStore.SetRemaining("gw-key-001", 1)
+	quotaChecker := quota.NewChecker(quotaStore)
 	rateLimiter := ratelimit.NewLimiter()
 	router := routing.NewRouter()
 	policyEngine := policy.NewEngine(quotaChecker, rateLimiter, router)

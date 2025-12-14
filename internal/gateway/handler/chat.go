@@ -56,12 +56,12 @@ func (h *ChatHandler) Handle(c *gin.Context) {
 	}
 	if !decision.Allowed {
 		switch decision.DenyCode {
-		case "quota_exceeded":
-			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("quota_exceeded", decision.DenyReason, "rate_limit_error", http.StatusTooManyRequests))
-		case "rate_limited":
-			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("rate_limited", decision.DenyReason, "rate_limit_error", http.StatusTooManyRequests))
+		case policy.DenyCodeQuotaExceeded:
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus(decision.DenyCode, decision.DenyReason, coreerrors.OpenAIErrorTypeRateLimit, http.StatusTooManyRequests))
+		case policy.DenyCodeRateLimited:
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus(decision.DenyCode, decision.DenyReason, coreerrors.OpenAIErrorTypeRateLimit, http.StatusTooManyRequests))
 		default:
-			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus("rate_limited", decision.DenyReason, "rate_limit_error", http.StatusTooManyRequests))
+			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus(decision.DenyCode, decision.DenyReason, coreerrors.OpenAIErrorTypeRateLimit, http.StatusTooManyRequests))
 		}
 		return
 	}

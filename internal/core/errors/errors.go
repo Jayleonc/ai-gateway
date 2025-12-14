@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+const (
+	OpenAIErrorTypeRateLimit = "rate_limit_error"
+)
+
 // 标准错误定义
 var (
 	ErrNotImplemented   = errors.New("not implemented")

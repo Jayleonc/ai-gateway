@@ -162,4 +162,21 @@ func (r *Runtime) LogSummary() {
 		r.ctx.ChunkCount, r.ctx.ConfirmedTokens, r.ctx.EndReason,
 		duration, firstChunkLatency,
 	)
+
+	status := "failed"
+	if r.ctx.FirstChunkAt != nil {
+		status = "partial"
+		if r.ctx.EndReason == EndReasonStop && r.ctx.Err == nil {
+			status = "completed"
+		}
+	}
+
+	log.Printf(
+		"[UsageRecord] request_id=%s api_key_id=%s provider=%s model=%s status=%s end_reason=%s "+
+			"confirmed_tokens=%d chunks=%d duration=%v",
+		r.ctx.RequestID, r.ctx.APIKeyID, r.ctx.Provider, r.ctx.Model,
+		status, r.ctx.EndReason,
+		r.ctx.ConfirmedTokens, r.ctx.ChunkCount,
+		duration,
+	)
 }

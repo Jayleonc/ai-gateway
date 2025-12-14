@@ -2,6 +2,13 @@
 
 **AI API Gateway / Control Plane** - 统一管理公司内部对多家 AI Provider（OpenAI / Claude / Gemini 等）的 API 调用。
 
+你愿意接进来的理由：
+- 不用自己管 Key（安全、合规）
+- API 稳定，不用频繁改代码
+- 多模态能力封装好了，少写很多业务代码
+- 成本“不会突然炸”（哪怕不精确）
+- 出问题有人兜（限流、降级、fallback）
+
 ## 快速开始
 
 ```bash

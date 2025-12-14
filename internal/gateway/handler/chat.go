@@ -12,6 +12,7 @@ import (
 	"github.com/Jayleonc/ai-gateway/internal/policy"
 	"github.com/Jayleonc/ai-gateway/internal/policy/quota"
 	"github.com/Jayleonc/ai-gateway/internal/provider"
+	transportopenai "github.com/Jayleonc/ai-gateway/internal/transport/openai"
 	"github.com/Jayleonc/ai-gateway/pkg/openai"
 )
 
@@ -192,18 +193,29 @@ func (h *ChatHandler) handleStreamingChat(c *gin.Context, reqCtx *identity.Reque
 	reader := streaming.NewStubStreamReader(stubChunks, 0)
 
 	// 执行 streaming 流程
-	if err := rt.Run(reader); err != nil {
-		// 如果是配额超限，返回 429
-		if sctx.EndReason == streaming.EndReasonQuotaExceeded {
-			WriteOpenAIError(c, coreerrors.NewAPIErrorWithStatus(policy.ErrQuotaExceeded, "quota exceeded during streaming", coreerrors.OpenAIErrorTypeRateLimit, http.StatusTooManyRequests))
+	err := rt.Run(reader)
+
+	// 输出摘要日志（无论成功或失败）
+	rt.LogSummary()
+
+	plan := transportopenai.MapStreamEnd(sctx, err)
+	switch plan.Action {
+	case transportopenai.StreamEndActionWriteJSONError:
+		if plan.Error != nil {
+			c.JSON(plan.Error.HTTPStatus, plan.Error.Body)
 			return
 		}
-		WriteOpenAIError(c, err)
+		c.Status(http.StatusInternalServerError)
+		return
+	case transportopenai.StreamEndActionCloseStream:
+		c.Status(http.StatusOK)
+		return
+	case transportopenai.StreamEndActionNone:
+		// continue
+	default:
+		c.Status(http.StatusInternalServerError)
 		return
 	}
-
-	// 输出摘要日志
-	rt.LogSummary()
 
 	// 返回 streaming 响应（简化版：直接返回 JSON）
 	// 实际应该返回 SSE 格式的流式响应

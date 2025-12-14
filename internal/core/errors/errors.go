@@ -7,6 +7,9 @@ import (
 
 const (
 	OpenAIErrorTypeRateLimit = "rate_limit_error"
+	OpenAIErrorTypeServer    = "server_error"
+	OpenAIErrorTypeInvalid   = "invalid_request_error"
+	OpenAIErrorTypeAuth      = "authentication_error"
 )
 
 // 标准错误定义
@@ -20,6 +23,7 @@ var (
 	ErrQuotaExceeded    = errors.New("quota exceeded")
 	ErrRateLimited      = errors.New("rate limited")
 	ErrProviderError    = errors.New("provider error")
+	ErrClientDisconnect = errors.New("client disconnected")
 	ErrInvalidAPIKey    = errors.New("invalid api key")
 	ErrAPIKeyExpired    = errors.New("api key expired")
 	ErrAPIKeyDisabled   = errors.New("api key disabled")
@@ -96,22 +100,24 @@ func AsAPIError(err error) APIError {
 
 	switch {
 	case errors.Is(err, ErrInvalidAPIKey):
-		return NewAPIErrorWithStatus("invalid_api_key", "invalid api key", "authentication_error", http.StatusUnauthorized)
+		return NewAPIErrorWithStatus("invalid_api_key", "invalid api key", OpenAIErrorTypeAuth, http.StatusUnauthorized)
 	case errors.Is(err, ErrAPIKeyExpired):
-		return NewAPIErrorWithStatus("api_key_expired", "api key expired", "authentication_error", http.StatusUnauthorized)
+		return NewAPIErrorWithStatus("api_key_expired", "api key expired", OpenAIErrorTypeAuth, http.StatusUnauthorized)
 	case errors.Is(err, ErrAPIKeyDisabled):
-		return NewAPIErrorWithStatus("api_key_disabled", "api key disabled", "authentication_error", http.StatusUnauthorized)
+		return NewAPIErrorWithStatus("api_key_disabled", "api key disabled", OpenAIErrorTypeAuth, http.StatusUnauthorized)
 	case errors.Is(err, ErrQuotaExceeded):
-		return NewAPIErrorWithStatus("quota_exceeded", "quota exceeded", "rate_limit_error", http.StatusTooManyRequests)
+		return NewAPIErrorWithStatus("quota_exceeded", "quota exceeded", OpenAIErrorTypeRateLimit, http.StatusTooManyRequests)
 	case errors.Is(err, ErrRateLimited):
-		return NewAPIErrorWithStatus("rate_limited", "rate limited", "rate_limit_error", http.StatusTooManyRequests)
+		return NewAPIErrorWithStatus("rate_limited", "rate limited", OpenAIErrorTypeRateLimit, http.StatusTooManyRequests)
 	case errors.Is(err, ErrProviderError):
-		return NewAPIErrorWithStatus("provider_error", "provider error", "server_error", http.StatusBadGateway)
+		return NewAPIErrorWithStatus("provider_error", "provider error", OpenAIErrorTypeServer, http.StatusBadGateway)
 	case errors.Is(err, ErrProviderNotFound):
-		return NewAPIErrorWithStatus("provider_error", "provider error", "server_error", http.StatusBadGateway)
+		return NewAPIErrorWithStatus("provider_error", "provider error", OpenAIErrorTypeServer, http.StatusBadGateway)
+	case errors.Is(err, ErrClientDisconnect):
+		return NewAPIErrorWithStatus("client_disconnect", "client disconnected", OpenAIErrorTypeServer, http.StatusInternalServerError)
 	case errors.Is(err, ErrBadRequest):
-		return NewAPIErrorWithStatus("invalid_request", "bad request", "invalid_request_error", http.StatusBadRequest)
+		return NewAPIErrorWithStatus("invalid_request", "bad request", OpenAIErrorTypeInvalid, http.StatusBadRequest)
 	default:
-		return NewAPIErrorWithStatus("internal_error", "internal server error", "server_error", http.StatusInternalServerError)
+		return NewAPIErrorWithStatus("internal_error", "internal server error", OpenAIErrorTypeServer, http.StatusInternalServerError)
 	}
 }

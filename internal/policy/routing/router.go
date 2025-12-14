@@ -29,6 +29,9 @@ func NewRouter() Router {
 func (r *router) Route(ctx context.Context, reqCtx *identity.RequestContext, model string) (*RouteResult, error) {
 	// TODO: implement routing logic
 	// For now, default to openai provider
+	// 不关心 API Key 的模型限制
+	// 不做 Provider 调用
+	// 只关心“去哪”
 	return &RouteResult{
 		Provider: "openai",
 		Model:    model,

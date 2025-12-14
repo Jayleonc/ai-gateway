@@ -39,7 +39,7 @@ func main() {
 	providerRegistry := provider.NewRegistry()
 
 	// 注册 OpenAI Provider
-	openaiAdapter := openai.NewAdapter("", "") // API Key 从配置读取
+	openaiAdapter := openai.NewAdapter("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", "") // API Key 从配置读取
 	providerRegistry.Register(openaiAdapter)
 
 	// 4. Gateway 模块

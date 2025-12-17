@@ -141,8 +141,42 @@ func (a *Adapter) Chat(ctx context.Context, req *provider.ChatRequest) (*provide
 
 // ChatStream 执行流式聊天补全
 func (a *Adapter) ChatStream(ctx context.Context, req *provider.ChatRequest) (provider.StreamReader, error) {
-	// TODO: implement real streaming
-	return &stubStreamReader{}, nil
+	if req == nil {
+		return nil, coreerrors.ErrBadRequest
+	}
+	if strings.TrimSpace(a.apiKey) == "" {
+		return nil, coreerrors.ErrUnauthorized
+	}
+	if strings.TrimSpace(req.Model) == "" {
+		return nil, coreerrors.ErrBadRequest
+	}
+	if !req.Stream {
+		return nil, coreerrors.ErrBadRequest
+	}
+
+	openaiReq := (&Transformer{}).TransformChatRequest(req)
+	openaiReq.Stream = true
+
+	body, err := json.Marshal(openaiReq)
+	if err != nil {
+		return nil, err
+	}
+
+	url := strings.TrimRight(a.baseURL, "/") + openaitypes.EndpointChatCompletions
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+	httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
+
+	client := &http.Client{Timeout: 0}
+	r, err := NewStreamReader(ctx, client, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	return &providerStreamReader{r: r}, nil
 }
 
 // Complete 执行文本补全

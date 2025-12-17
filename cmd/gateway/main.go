@@ -10,6 +10,7 @@ import (
 
 	"github.com/Jayleonc/ai-gateway/internal/gateway"
 	"github.com/Jayleonc/ai-gateway/internal/identity"
+	"github.com/Jayleonc/ai-gateway/internal/metering"
 	"github.com/Jayleonc/ai-gateway/internal/policy"
 	"github.com/Jayleonc/ai-gateway/internal/policy/quota"
 	"github.com/Jayleonc/ai-gateway/internal/policy/ratelimit"
@@ -31,7 +32,7 @@ func main() {
 
 	// 2. Policy 模块
 	quotaStore := quota.NewInMemoryStore()
-	quotaStore.SetRemaining("gw-key-001", 1)
+	quotaStore.SetRemaining("gw-key-001", 1000000)
 	quotaChecker := quota.NewChecker(quotaStore)
 	rateLimiter := ratelimit.NewLimiter()
 	router := routing.NewRouter()
@@ -41,14 +42,25 @@ func main() {
 	providerRegistry := provider.NewRegistry()
 
 	// 注册 OpenAI Provider
-	openaiAdapter := openai.NewAdapter("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", "") // API Key 从配置读取
+	openaiAdapter := openai.NewAdapter(os.Getenv("OPENAI_API_KEY"), "") // API Key 从配置读取
 	providerRegistry.Register(openaiAdapter)
+
+	// 3.5 Metering（最小可用：InMemory）
+	recorder := metering.NewRecorder()
+	mem, _ := recorder.(*metering.InMemoryRecorder)
+	var usageQuery metering.UsageQuery
+	if mem != nil {
+		usageQuery = metering.NewInMemoryUsageQuery(mem)
+	}
 
 	// 4. Gateway 模块
 	routerCfg := &gateway.RouterConfig{
 		Authenticator:    authenticator,
 		PolicyEngine:     policyEngine,
 		ProviderRegistry: providerRegistry,
+		QuotaStore:       quotaStore,
+		MeteringRecorder: recorder,
+		UsageQuery:       usageQuery,
 	}
 	ginRouter := gateway.SetupRouter(routerCfg)
 

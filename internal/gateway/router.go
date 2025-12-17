@@ -6,7 +6,9 @@ import (
 	"github.com/Jayleonc/ai-gateway/internal/gateway/handler"
 	"github.com/Jayleonc/ai-gateway/internal/gateway/middleware"
 	"github.com/Jayleonc/ai-gateway/internal/identity"
+	"github.com/Jayleonc/ai-gateway/internal/metering"
 	"github.com/Jayleonc/ai-gateway/internal/policy"
+	"github.com/Jayleonc/ai-gateway/internal/policy/quota"
 	"github.com/Jayleonc/ai-gateway/internal/provider"
 )
 
@@ -15,6 +17,9 @@ type RouterConfig struct {
 	Authenticator    identity.Authenticator
 	PolicyEngine     policy.Engine
 	ProviderRegistry provider.Registry
+	QuotaStore       quota.QuotaStore
+	MeteringRecorder metering.Recorder
+	UsageQuery       metering.UsageQuery
 }
 
 // SetupRouter 配置路由
@@ -36,7 +41,12 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	v1 := r.Group("/v1")
 	{
 		// Chat Completions
-		chatHandler := handler.NewChatHandler(cfg.Authenticator, cfg.PolicyEngine, cfg.ProviderRegistry)
+		var chatHandler *handler.ChatHandler
+		if cfg.QuotaStore != nil {
+			chatHandler = handler.NewChatHandlerWithQuota(cfg.Authenticator, cfg.PolicyEngine, cfg.ProviderRegistry, cfg.QuotaStore, cfg.MeteringRecorder)
+		} else {
+			chatHandler = handler.NewChatHandler(cfg.Authenticator, cfg.PolicyEngine, cfg.ProviderRegistry, cfg.MeteringRecorder)
+		}
 		v1.POST("/chat/completions", chatHandler.Handle)
 
 		// Completions
@@ -47,6 +57,17 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 		modelsHandler := handler.NewModelsHandler(cfg.ProviderRegistry)
 		v1.GET("/models", modelsHandler.List)
 		v1.GET("/models/:model", modelsHandler.Get)
+	}
+
+	// Internal APIs (no auth, no pagination)
+	internal := r.Group("/internal")
+	{
+		usageHandler := handler.NewUsageHandler(cfg.UsageQuery)
+		internal.GET("/usage", usageHandler.List)
+		internal.GET("/usage/:request_id", usageHandler.Get)
+
+		quotaHandler := handler.NewQuotaHandler(cfg.QuotaStore, cfg.UsageQuery)
+		internal.GET("/quota/:api_key", quotaHandler.GetSnapshot)
 	}
 
 	return r

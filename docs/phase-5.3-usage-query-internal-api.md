@@ -2,6 +2,8 @@
 
 目标：系统第一次能“回头解释自己干了什么”。
 
+结论：Snapshot ≠ Allowance ≠ Usage。
+
 Phase 5.3 不追求完备的查询能力，只提供最小 internal 查询接口，让 UsageRecord 可被拉取验证。
 
 ---
@@ -53,6 +55,9 @@ internal usage view 作为对外解释模型，包含：
 - 生命周期证据：
   - `start_at` / `first_chunk_at` / `end_at`
   - `duration`（ms）
+
+> 说明：/internal/usage 返回的是 Usage（来自 UsageRecord 的事后事实）。
+> 它不是 Allowance（identity 配置），也不是 Snapshot/Remaining（QuotaStore 的 runtime 状态）。
 
 ---
 

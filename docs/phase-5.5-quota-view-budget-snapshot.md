@@ -2,6 +2,8 @@
 
 一句话：让用户“看见预算”，而不是“用好预算”。
 
+结论：Snapshot ≠ Allowance ≠ Usage。
+
 Phase 5.5 的价值：
 
 - 验证：QuotaStore + UsageRecord 在对外解释上是自洽的
@@ -22,6 +24,9 @@ Phase 5.5 的价值：
 - `quota_used`（来自 UsageRecord 汇总）
 - `quota_remaining`（来自 QuotaStore）
 - `last_updated_at`
+
+> 说明：Snapshot 是一类“派生视图”，来源于 QuotaStore（runtime 状态）与 UsageRecord（事后事实）的组合。
+> 它不是 Allowance（identity 配置），也不是 Usage（已发生事实）。
 
 ---
 

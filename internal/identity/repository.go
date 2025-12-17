@@ -9,19 +9,29 @@ import (
 )
 
 // APIKeyInfo API Key 详细信息
+//
+// APIKeyInfo 表示 identity 级别的 Allowance（使用许可）配置。
+// 这些字段定义的是“使用许可（Allowance）”，而不是“实时 enforcement 来源”或“计费（Billing）”。
 type APIKeyInfo struct {
-	ID            string
-	KeyHash       string
-	ProjectID     string
-	TenantID      string
-	CostCenter    string
+	ID         string
+	KeyHash    string
+	ProjectID  string
+	TenantID   string
+	CostCenter string
+
+	// AllowedModels 定义该 key 被允许访问哪些模型（能力许可）。
 	AllowedModels []string
-	RateLimit     int
-	QuotaLimit    int64
-	Labels        map[string]string
-	Status        string
-	ExpiresAt     *time.Time
-	CreatedAt     time.Time
+	// QuotaLimit 定义该 key 被授予的最大使用预算（预算许可）。
+	// NOTE：QuotaLimit 是 Allowance 配置，而不是 enforcement source。
+	QuotaLimit int64
+	// RateLimit 定义该 key 被授予的使用速率许可（时序/速率许可）。
+	// NOTE：Phase 6 不要求也不实现 RateLimit 的强制执行。
+	RateLimit int
+
+	Labels    map[string]string
+	Status    string
+	ExpiresAt *time.Time
+	CreatedAt time.Time
 }
 
 // APIKeyRepository API Key 存储接口

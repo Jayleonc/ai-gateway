@@ -68,6 +68,11 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 
 		quotaHandler := handler.NewQuotaHandler(cfg.QuotaStore, cfg.UsageQuery)
 		internal.GET("/quota/:api_key", quotaHandler.GetSnapshot)
+
+		// Admin read-only APIs (Phase 7.2 governance read-model bridging)
+		adminReadHandler := handler.NewAdminReadHandler(cfg.QuotaStore, cfg.UsageQuery, cfg.MeteringRecorder)
+		internal.GET("/admin/keys/:api_key_id/quota", adminReadHandler.GetQuotaFact)
+		internal.GET("/admin/keys/:api_key_id/usages", adminReadHandler.GetUsagesFact)
 	}
 
 	return r

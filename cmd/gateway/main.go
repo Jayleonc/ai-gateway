@@ -40,9 +40,9 @@ func main() {
 
 	// 3. Provider 模块
 	providerRegistry := provider.NewRegistry()
-
+	apikey := os.Getenv("OPENAI_API_KEY")
 	// 注册 OpenAI Provider
-	openaiAdapter := openai.NewAdapter(os.Getenv("OPENAI_API_KEY"), "") // API Key 从配置读取
+	openaiAdapter := openai.NewAdapter(apikey, "") // API Key 从配置读取
 	providerRegistry.Register(openaiAdapter)
 
 	// 3.5 Metering（最小可用：InMemory）

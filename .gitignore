@@ -1,2 +1,4 @@
 .vscode
 .idea
+
+internal/admin/web/node_modules
